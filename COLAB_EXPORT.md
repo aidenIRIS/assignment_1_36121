@@ -13,7 +13,9 @@
 ## 3) Run all analyses
 ```bash
 !python colab_analysis.py \
-  --data-path "/content/assignment_1_36121/data/Sample Datasets-2 data job posts TEST DATA.csv" \
+  --data-paths \
+  "/content/assignment_1_36121/data/Sample Dataset-2 data job posts.csv" \
+  "/content/assignment_1_36121/data/Sample Datasets-3 Job posted LinkedIn (2023 - 2024).csv" \
   --out-dir "/content/outputs" \
   --skip-plots
 ```
@@ -21,10 +23,11 @@
 Use `--skip-plots` only if you do not need PNG charts.
 
 ## 4) Output files
-- `/content/outputs/performance_metrics.csv`
-- `/content/outputs/empirical_algorithm_metrics.csv`
-- `/content/outputs/ranking_metrics.csv`
-- `/content/outputs/plots/*.png` (if plots are enabled)
+- `/content/outputs/<dataset_tag>/performance_metrics.csv`
+- `/content/outputs/<dataset_tag>/empirical_algorithm_metrics.csv`
+- `/content/outputs/<dataset_tag>/ranking_metrics.csv`
+- `/content/outputs/<dataset_tag>/plots/*.png` (if plots are enabled)
+- `/content/outputs/dataset_run_summary.csv`
 
 ## 5) Optional: run with Google Drive dataset
 ```bash
@@ -32,6 +35,6 @@ from google.colab import drive
 drive.mount('/content/drive')
 
 !python colab_analysis.py \
-  --data-path "/content/drive/MyDrive/your_dataset.csv" \
+  --data-paths "/content/drive/MyDrive/dataset1.csv" "/content/drive/MyDrive/dataset2.csv" \
   --out-dir "/content/drive/MyDrive/assignment_outputs"
 ```
