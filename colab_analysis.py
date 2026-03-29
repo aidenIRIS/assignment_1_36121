@@ -1,7 +1,7 @@
 """
 Colab-friendly runner for performance, empirical, and ranking analyses.
 Usage (local):
-    python colab_analysis.py --data-path data/Sample\ Datasets-2\ data\ job\ posts\ TEST\ DATA.csv --out-dir outputs
+    python colab_analysis.py --data-path "data/Sample Datasets-2 data job posts TEST DATA.csv" --out-dir outputs
 
 In Colab:
     %pip install -q -r requirements.txt
@@ -9,6 +9,7 @@ In Colab:
 """
 
 import argparse
+import importlib
 import os
 import sys
 import pathlib
@@ -21,70 +22,30 @@ def ensure_matplotlib_noninteractive(out_dir: str):
     import matplotlib
     matplotlib.use("Agg")
 
+
+def load_module_fresh(module_name: str):
+    if module_name in sys.modules:
+        return importlib.reload(sys.modules[module_name])
+    return importlib.import_module(module_name)
+
 def run_performance(data_path: str, out_dir: str, skip_plots: bool):
-    from analysis import performance_analysis as perf
-    perf.DATA_PATH = data_path
-    perf.os.makedirs(out_dir, exist_ok=True)
-    perf.os.makedirs(os.path.join(out_dir, "plots"), exist_ok=True)
-    df = None
-    # Re-run with plotting toggled by skip_plots
-    orig_show = perf.plt.show
-    if skip_plots:
-        perf.plt.show = lambda *args, **kwargs: None
-    df = perf.df_results if hasattr(perf, "df_results") else None
-    if df is None:
-        # If not already run, call module (it executes on import)
-        pass
-    # Save outputs if present
-    try:
-        perf.df_results.to_csv(os.path.join(out_dir, "performance_metrics.csv"), index=False)
-    except Exception:
-        pass
-    perf.plt.show = orig_show
-    return df
+    os.environ["ASSIGNMENT_DATA_PATH"] = data_path
+    os.environ["ASSIGNMENT_OUTPUT_DIR"] = out_dir
+    os.environ["ASSIGNMENT_SKIP_PLOTS"] = "1" if skip_plots else "0"
+    perf = load_module_fresh("analysis.performance_analysis")
+    return getattr(perf, "df_results", None)
 
 def run_empirical(data_path: str, out_dir: str, skip_plots: bool):
-    from analysis import empirical_analysis as emp
-    emp.DATA_PATH = data_path
-    emp.os.makedirs(out_dir, exist_ok=True)
-    emp.os.makedirs(os.path.join(out_dir, "plots"), exist_ok=True)
-    orig_show = emp.plt.show
-    if skip_plots:
-        emp.plt.show = lambda *args, **kwargs: None
-    df = None
-    try:
-        emp.empirical_df.to_csv(os.path.join(out_dir, "empirical_metrics.csv"), index=False)
-    except Exception:
-        pass
-    emp.plt.show = orig_show
-    return df
+    os.environ["ASSIGNMENT_DATA_PATH"] = data_path
+    os.environ["ASSIGNMENT_OUTPUT_DIR"] = out_dir
+    os.environ["ASSIGNMENT_SKIP_PLOTS"] = "1" if skip_plots else "0"
+    emp = load_module_fresh("analysis.empirical_analysis")
+    return getattr(emp, "empirical_df", None)
 
 def run_ranking(data_path: str, out_dir: str):
-    import pandas as pd
-    from analysis import ranking_evaluation as rank
+    rank = load_module_fresh("analysis.ranking_evaluation")
     rank.DATA_PATH = data_path
-    # Re-run evaluate to rebuild df
-    rank.evaluate()
-    # The evaluate prints, we rebuild for saving
-    jobs = rank.load_jobs()
-    relevance = rank.relevance_scores(jobs)
-    neighbors = rank.build_similarity_neighbors(jobs, top_k=5)
-    systems = {
-        "BFS": rank.run_bfs(jobs, neighbors),
-        "DFS": rank.run_dfs(jobs, neighbors),
-        "UCS": rank.run_ucs(jobs, neighbors),
-        "A*": rank.run_astar(jobs, neighbors),
-        "Hill Climb": rank.run_hill_climb(jobs, neighbors),
-        "Prob Hill Climb": rank.run_prob_hc() if hasattr(rank, "run_prob_hc") else [],
-        "Genetic Algorithm": rank.run_ga(jobs),
-    }
-    rows = []
-    for name, ranking in systems.items():
-        for k in rank.K_VALUES:
-            p = rank.precision_at_k(ranking, relevance, k)
-            n = rank.ndcg_at_k(ranking, relevance, k)
-            rows.append({"algorithm": name, "K": k, "precision_at_k": p, "ndcg_at_k": n})
-    df = pd.DataFrame(rows)
+    df = rank.evaluate(print_table=False)
     os.makedirs(out_dir, exist_ok=True)
     df.to_csv(os.path.join(out_dir, "ranking_metrics.csv"), index=False)
     return df

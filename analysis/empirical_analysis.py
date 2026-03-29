@@ -37,7 +37,11 @@ def measure_performance(algorithm_fn, *args, include_nodes=True, **kwargs):
     return result, runtime, peak / 1024 / 1024, nodes
 
 # Load and preprocess data
-DATA_PATH = 'data/Sample Datasets-2 data job posts TEST DATA.csv'
+DATA_PATH = os.environ.get(
+    "ASSIGNMENT_DATA_PATH", "data/Sample Datasets-2 data job posts TEST DATA.csv"
+)
+OUTPUT_DIR = os.environ.get("ASSIGNMENT_OUTPUT_DIR", "analysis")
+SKIP_PLOTS = os.environ.get("ASSIGNMENT_SKIP_PLOTS", "0") == "1"
 if not os.path.exists(DATA_PATH):
     raise FileNotFoundError(f"Expected dataset at {DATA_PATH}. Add the file or update DATA_PATH.")
 df = load_dataset(DATA_PATH)
@@ -182,31 +186,35 @@ empirical_df = pd.DataFrame(results)
 print(empirical_df)
 
 # Visualization (save to disk)
-os.makedirs('analysis/plots', exist_ok=True)
+plots_dir = os.path.join(OUTPUT_DIR, 'plots')
+os.makedirs(plots_dir, exist_ok=True)
 
-sns.barplot(data=empirical_df, x='algorithm', y='runtime_sec')
-plt.title('Algorithm Runtime Comparison (Empirical)')
-plt.ylabel('Runtime (seconds)')
-plt.xticks(rotation=20)
-plt.tight_layout()
-plt.savefig('analysis/plots/empirical_runtime_comparison.png', dpi=200)
-plt.clf()
+if not SKIP_PLOTS and not empirical_df.empty:
+    sns.barplot(data=empirical_df, x='algorithm', y='runtime_sec')
+    plt.title('Algorithm Runtime Comparison (Empirical)')
+    plt.ylabel('Runtime (seconds)')
+    plt.xticks(rotation=20)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'empirical_runtime_comparison.png'), dpi=200)
+    plt.clf()
 
-sns.barplot(data=empirical_df, x='algorithm', y='memory_mb')
-plt.title('Algorithm Memory Usage Comparison (Empirical)')
-plt.ylabel('Peak Memory (MB)')
-plt.xticks(rotation=20)
-plt.tight_layout()
-plt.savefig('analysis/plots/empirical_memory_comparison.png', dpi=200)
-plt.clf()
+    sns.barplot(data=empirical_df, x='algorithm', y='memory_mb')
+    plt.title('Algorithm Memory Usage Comparison (Empirical)')
+    plt.ylabel('Peak Memory (MB)')
+    plt.xticks(rotation=20)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'empirical_memory_comparison.png'), dpi=200)
+    plt.clf()
 
-sns.barplot(data=empirical_df.dropna(subset=['nodes_expanded']), x='algorithm', y='nodes_expanded')
-plt.title('Algorithm Nodes Expanded (Empirical)')
-plt.ylabel('Nodes Expanded')
-plt.xticks(rotation=20)
-plt.tight_layout()
-plt.savefig('analysis/plots/empirical_nodes_expanded.png', dpi=200)
-plt.clf()
+    nodes_df = empirical_df.dropna(subset=['nodes_expanded'])
+    if not nodes_df.empty:
+        sns.barplot(data=nodes_df, x='algorithm', y='nodes_expanded')
+        plt.title('Algorithm Nodes Expanded (Empirical)')
+        plt.ylabel('Nodes Expanded')
+        plt.xticks(rotation=20)
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, 'empirical_nodes_expanded.png'), dpi=200)
+        plt.clf()
 
 # Save table to CSV
-empirical_df.to_csv('analysis/empirical_algorithm_metrics.csv', index=False)
+empirical_df.to_csv(os.path.join(OUTPUT_DIR, 'empirical_algorithm_metrics.csv'), index=False)

@@ -32,7 +32,11 @@ def measure_performance(algorithm_fn, *args, include_nodes=True, **kwargs):
     return result, runtime, peak / 1024 / 1024, nodes
 
 # --- Load Data ---
-DATA_PATH = 'data/Sample Datasets-2 data job posts TEST DATA.csv'
+DATA_PATH = os.environ.get(
+    "ASSIGNMENT_DATA_PATH", "data/Sample Datasets-2 data job posts TEST DATA.csv"
+)
+OUTPUT_DIR = os.environ.get("ASSIGNMENT_OUTPUT_DIR", "analysis")
+SKIP_PLOTS = os.environ.get("ASSIGNMENT_SKIP_PLOTS", "0") == "1"
 if not os.path.exists(DATA_PATH):
     raise FileNotFoundError(f"Expected dataset at {DATA_PATH}. Add the file or update DATA_PATH.")
 df = load_dataset(DATA_PATH)
@@ -151,21 +155,21 @@ if jobs:
     })
 
     # Plot convergence behaviour (fitness over generations)
-    fitness_hist = ga_metrics['fitness_history']
-    generations = [f['generation'] for f in fitness_hist]
-    bests = [f['best'] for f in fitness_hist]
-    avgs = [f['avg'] for f in fitness_hist]
-    worsts = [f['worst'] for f in fitness_hist]
-    plt.figure()
-    plt.plot(generations, bests, label='Best Fitness')
-    plt.plot(generations, avgs, label='Average Fitness')
-    plt.plot(generations, worsts, label='Worst Fitness')
-    plt.xlabel('Generation')
-    plt.ylabel('Fitness')
-    plt.title('Genetic Algorithm Convergence')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    if not SKIP_PLOTS:
+        fitness_hist = ga_metrics['fitness_history']
+        generations = [f['generation'] for f in fitness_hist]
+        bests = [f['best'] for f in fitness_hist]
+        avgs = [f['avg'] for f in fitness_hist]
+        worsts = [f['worst'] for f in fitness_hist]
+        plt.figure()
+        plt.plot(generations, bests, label='Best Fitness')
+        plt.plot(generations, avgs, label='Average Fitness')
+        plt.plot(generations, worsts, label='Worst Fitness')
+        plt.xlabel('Generation')
+        plt.ylabel('Fitness')
+        plt.title('Genetic Algorithm Convergence')
+        plt.legend()
+        plt.tight_layout()
 
     # Hill Climbing with similarity-based neighbors and random restarts (deterministic)
     import random
@@ -211,28 +215,34 @@ df_results = pd.DataFrame(results)
 print(df_results)
 
 # --- Visualization (saved to disk) ---
-os.makedirs('analysis/plots', exist_ok=True)
+plots_dir = os.path.join(OUTPUT_DIR, 'plots')
+os.makedirs(plots_dir, exist_ok=True)
 
-sns.barplot(data=df_results, x='algorithm', y='runtime_sec')
-plt.title('Algorithm Runtime Comparison')
-plt.ylabel('Runtime (seconds)')
-plt.xticks(rotation=20)
-plt.tight_layout()
-plt.savefig('analysis/plots/runtime_comparison.png', dpi=200)
-plt.clf()
+if not SKIP_PLOTS and not df_results.empty:
+    sns.barplot(data=df_results, x='algorithm', y='runtime_sec')
+    plt.title('Algorithm Runtime Comparison')
+    plt.ylabel('Runtime (seconds)')
+    plt.xticks(rotation=20)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'runtime_comparison.png'), dpi=200)
+    plt.clf()
 
-sns.barplot(data=df_results, x='algorithm', y='memory_mb')
-plt.title('Algorithm Memory Usage Comparison')
-plt.ylabel('Peak Memory (MB)')
-plt.xticks(rotation=20)
-plt.tight_layout()
-plt.savefig('analysis/plots/memory_comparison.png', dpi=200)
-plt.clf()
+    sns.barplot(data=df_results, x='algorithm', y='memory_mb')
+    plt.title('Algorithm Memory Usage Comparison')
+    plt.ylabel('Peak Memory (MB)')
+    plt.xticks(rotation=20)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, 'memory_comparison.png'), dpi=200)
+    plt.clf()
 
-sns.barplot(data=df_results.dropna(subset=['nodes_expanded']), x='algorithm', y='nodes_expanded')
-plt.title('Algorithm Nodes Expanded')
-plt.ylabel('Nodes Expanded')
-plt.xticks(rotation=20)
-plt.tight_layout()
-plt.savefig('analysis/plots/nodes_expanded.png', dpi=200)
-plt.clf()
+    nodes_df = df_results.dropna(subset=['nodes_expanded'])
+    if not nodes_df.empty:
+        sns.barplot(data=nodes_df, x='algorithm', y='nodes_expanded')
+        plt.title('Algorithm Nodes Expanded')
+        plt.ylabel('Nodes Expanded')
+        plt.xticks(rotation=20)
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, 'nodes_expanded.png'), dpi=200)
+        plt.clf()
+
+df_results.to_csv(os.path.join(OUTPUT_DIR, 'performance_metrics.csv'), index=False)

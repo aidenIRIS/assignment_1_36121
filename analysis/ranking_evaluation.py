@@ -13,7 +13,9 @@ from src.algorithms import utils, genetic_algorithm, hill_climbing
 from src.algorithms import astar, bfs, dfs, ucs
 
 # --- Config ---
-DATA_PATH = "data/Sample Datasets-2 data job posts TEST DATA.csv"
+DATA_PATH = os.environ.get(
+    "ASSIGNMENT_DATA_PATH", "data/Sample Datasets-2 data job posts TEST DATA.csv"
+)
 K_VALUES = (5, 10)
 skill_keywords = [
     "python",
@@ -166,11 +168,37 @@ def taxonomy_heuristic(jobs):
         + utils.TIER4_ADJACENT
     )
     max_terms = len(terms)
+    weights = {
+        "title": 0.30,
+        "jobdescription": 0.30,
+        "jobrequirment": 0.25,
+        "requiredqual": 0.15,
+    }
+    requirement_keys = ("jobrequirment", "jobrequiment", "jobrequirement")
 
     def h(idx):
-        text = f"{jobs[idx].get('title','')} {jobs[idx].get('jobdescription','')}".lower()
-        hits = sum(term in text for term in terms)
-        return max_terms - hits  # admissible-ish, non-negative
+        job = jobs[idx]
+        title_text = str(job.get("title", "") or "").lower()
+        desc_text = str(job.get("jobdescription", "") or "").lower()
+        req_text = str(
+            next((job.get(k) for k in requirement_keys if job.get(k)), "") or ""
+        ).lower()
+        qual_text = str(job.get("requiredqual", "") or "").lower()
+
+        # Weighted field relevance:
+        # f(j) = 0.30*Title + 0.30*JobDescription + 0.25*JobRequirement + 0.15*RequiredQual
+        title_score = sum(term in title_text for term in terms) / max_terms
+        desc_score = sum(term in desc_text for term in terms) / max_terms
+        req_score = sum(term in req_text for term in terms) / max_terms
+        qual_score = sum(term in qual_text for term in terms) / max_terms
+
+        f_j = (
+            weights["title"] * title_score
+            + weights["jobdescription"] * desc_score
+            + weights["jobrequirment"] * req_score
+            + weights["requiredqual"] * qual_score
+        )
+        return 1.0 - f_j  # lower h is better for min-heap A*
 
     return h
 
@@ -244,7 +272,7 @@ def run_ga(jobs):
     return [jobs.index(j) for _, j in scored]
 
 
-def evaluate():
+def evaluate(print_table=True):
     jobs = load_jobs()
     relevance = relevance_scores(jobs)
     neighbors = build_similarity_neighbors(jobs, top_k=5)
@@ -288,8 +316,10 @@ def evaluate():
             n = ndcg_at_k(ranking, relevance, k)
             rows.append({"algorithm": name, "K": k, "precision_at_k": p, "ndcg_at_k": n})
     df = pd.DataFrame(rows)
-    print(df.pivot(index="algorithm", columns="K", values=["precision_at_k", "ndcg_at_k"]))
+    if print_table:
+        print(df.pivot(index="algorithm", columns="K", values=["precision_at_k", "ndcg_at_k"]))
+    return df
 
 
 if __name__ == "__main__":
-    evaluate()
+    evaluate(print_table=True)
