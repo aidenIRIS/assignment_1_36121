@@ -77,10 +77,16 @@ def load_jobs():
 def relevance_scores(jobs):
     scores = []
     for job in jobs:
+        requirement = (
+            job.get("jobrequirement")
+            or job.get("jobrequirment")
+            or job.get("jobrequiment")
+            or ""
+        )
         parts = [
             job.get('title',''),
             job.get('jobdescription',''),
-            job.get('jobrequiment',''),
+            requirement,
             job.get('requiredqual',''),
         ]
         parts = [p if isinstance(p, str) else '' for p in parts]
@@ -94,10 +100,19 @@ def build_similarity_neighbors(jobs, top_k=5):
         return []
     corpus = []
     for j in jobs:
+        if j.get("clean_text"):
+            corpus.append(str(j.get("clean_text")).lower())
+            continue
+        requirement = (
+            j.get("jobrequirement")
+            or j.get("jobrequirment")
+            or j.get("jobrequiment")
+            or ""
+        )
         parts = [
             j.get('title',''),
             j.get('jobdescription',''),
-            j.get('jobrequiment',''),
+            requirement,
             j.get('requiredqual',''),
         ]
         parts = [p if isinstance(p, str) else '' for p in parts]
@@ -174,7 +189,7 @@ def taxonomy_heuristic(jobs):
         "jobrequirment": 0.25,
         "requiredqual": 0.15,
     }
-    requirement_keys = ("jobrequirment", "jobrequiment", "jobrequirement")
+    requirement_keys = ("jobrequirement", "jobrequirment", "jobrequiment")
 
     def h(idx):
         job = jobs[idx]
@@ -252,10 +267,16 @@ def run_ga(jobs):
     if not jobs:
         return []
     def fitness(job):
+        requirement = (
+            job.get("jobrequirement")
+            or job.get("jobrequirment")
+            or job.get("jobrequiment")
+            or ""
+        )
         parts = [
             job.get('title',''),
             job.get('jobdescription',''),
-            job.get('jobrequiment',''),
+            requirement,
             job.get('requiredqual',''),
         ]
         parts = [p if isinstance(p, str) else '' for p in parts]

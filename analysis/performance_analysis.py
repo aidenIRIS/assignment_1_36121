@@ -54,10 +54,18 @@ skill_keywords = ['python', 'tensorflow', 'pytorch', 'nlp', 'data science', 'mac
 
 def job_text(job):
     """Concatenate key textual fields for scoring/similarity."""
+    if job.get("clean_text"):
+        return str(job.get("clean_text")).lower()
+    requirement = (
+        job.get("jobrequirement")
+        or job.get("jobrequirment")
+        or job.get("jobrequiment")
+        or ""
+    )
     parts = [
         job.get('title', ''),
         job.get('jobdescription', ''),
-        job.get('jobrequiment', ''),
+        requirement,
         job.get('requiredqual', ''),
     ]
     parts = [p if isinstance(p, str) else '' for p in parts]
